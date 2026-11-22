@@ -559,15 +559,21 @@ asyncio.run(test_tg())
 
         self.send_json({"error": "Endpoint not found"}, HTTPStatus.NOT_FOUND)
 
-def run(port=8088):
+def run(host="0.0.0.0", port=8088):
     os.makedirs(WEB_DIR, exist_ok=True)
     if not os.path.exists(LOG_FILE):
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             f.write(f"=== Avito Bot Host Server Initialized at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
-    server_address = ("127.0.0.1", port)
+    # Автозапуск воркера мониторинга при старте сервера (для облака Render / VPS)
+    auto_start = os.getenv("AUTO_START_WORKER", "1").lower() in ("1", "true", "yes")
+    if auto_start:
+        ok, msg = start_worker()
+        logging.info(f"Автозапуск воркера: {msg}")
+
+    server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, AvitoBotHostHandler)
-    logging.info(f"Avito Bot Host запущен на http://127.0.0.1:{port}")
+    logging.info(f"Avito Bot Host запущен на http://{host}:{port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -578,5 +584,7 @@ def run(port=8088):
         logging.info("Сервер остановлен.")
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8088
-    run(port)
+    env_port = os.getenv("PORT")
+    port = int(env_port) if env_port else (int(sys.argv[1]) if len(sys.argv) > 1 else 8088)
+    host = os.getenv("HOST", "0.0.0.0")
+    run(host=host, port=port)
